@@ -1,6 +1,6 @@
 [package]
 name = "rdg"
-version = "3.0.2"
+version = "3.0.3"
 authors = ["Edwin Svensson <rdg-linux@olback.net>"]
 edition = "2018"
 build = "build/build.rs"
@@ -15,6 +15,7 @@ dirs = "2"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 padlock = "0.1.1-alpha"
+openssl = "0.10.64"
 
 [build-dependencies]
 regex = "1.3"
