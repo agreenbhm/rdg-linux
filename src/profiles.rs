@@ -9,6 +9,7 @@ pub struct Profile {
     pub host: String,
     pub port: u16,
     pub username: String,
+    pub password: String,
     pub domain: String,
     pub width: u32,
     pub height: u32,
@@ -33,6 +34,12 @@ impl Profile {
         let username = self.username.trim();
         if !username.is_empty() {
             args.push(format!("-u{}", username));
+        }
+
+        // Password
+        let password = self.password.trim();
+        if !password.is_empty() {
+            args.push(format!("-p{}", password));
         }
 
         // Domain

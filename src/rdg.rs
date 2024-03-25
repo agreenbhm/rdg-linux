@@ -32,6 +32,7 @@ pub struct Rdg {
     host_entry: gtk::Entry,
     port: gtk::Entry,
     username: gtk::Entry,
+    password: gtk::Entry,
     domain: gtk::Entry,
     width: gtk::Entry,
     height: gtk::Entry,
@@ -86,6 +87,7 @@ impl Rdg {
             host_entry: get_obj!(builder, "host_entry"),
             port: get_obj!(builder, "port"),
             username: get_obj!(builder, "username"),
+            password: get_obj!(builder, "password"),
             domain: get_obj!(builder, "domain"),
             width: get_obj!(builder, "width"),
             height: get_obj!(builder, "height"),
@@ -196,6 +198,7 @@ impl Rdg {
 
         let port = self.port.clone();
         let username = self.username.clone();
+        let password = self.password.clone();
         let domain = self.domain.clone();
         let width = self.width.clone();
         let height = self.height.clone();
@@ -223,6 +226,7 @@ impl Rdg {
 
             port.set_text(&format!("{}", profile.port));
             username.set_text(profile.username.as_str());
+            password.set_text(profile.password.as_str());
             domain.set_text(profile.domain.as_str());
             width.set_text(&format!("{}", profile.width));
             height.set_text(&format!("{}", profile.height));
@@ -247,6 +251,7 @@ impl Rdg {
         let host_entry = self.host_entry.clone();
         let port = self.port.clone();
         let username = self.username.clone();
+        let password = self.password.clone();
         let domain = self.domain.clone();
         let width = self.width.clone();
         let height = self.height.clone();
@@ -317,6 +322,7 @@ impl Rdg {
                 host: host.clone(),
                 port: port,
                 username: username.get_text().map(|v| v.to_string()).unwrap_or("".into()),
+                password: password.get_text().map(|v| v.to_string()).unwrap_or("".into()),
                 domain: domain.get_text().map(|v| v.to_string()).unwrap_or("".into()),
                 width: width,
                 height: height,
