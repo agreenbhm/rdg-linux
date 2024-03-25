@@ -10,6 +10,7 @@ pub struct Profile {
     pub port: u16,
     pub username: String,
     pub password: String,
+    pub save_password: bool,
     pub domain: String,
     pub width: u32,
     pub height: u32,

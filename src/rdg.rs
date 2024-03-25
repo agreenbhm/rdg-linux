@@ -1,6 +1,6 @@
 use gtk::{
     prelude::*,
-    Builder
+    Builder, CheckButton
 };
 use gio::prelude::*;
 use crate::{
@@ -33,6 +33,7 @@ pub struct Rdg {
     port: gtk::Entry,
     username: gtk::Entry,
     password: gtk::Entry,
+    save_password: gtk::CheckButton,
     domain: gtk::Entry,
     width: gtk::Entry,
     height: gtk::Entry,
@@ -88,6 +89,7 @@ impl Rdg {
             port: get_obj!(builder, "port"),
             username: get_obj!(builder, "username"),
             password: get_obj!(builder, "password"),
+            save_password: get_obj!(builder, "save_password"),
             domain: get_obj!(builder, "domain"),
             width: get_obj!(builder, "width"),
             height: get_obj!(builder, "height"),
@@ -199,6 +201,7 @@ impl Rdg {
         let port = self.port.clone();
         let username = self.username.clone();
         let password = self.password.clone();
+        let save_password = self.save_password.clone();
         let domain = self.domain.clone();
         let width = self.width.clone();
         let height = self.height.clone();
@@ -227,6 +230,7 @@ impl Rdg {
             port.set_text(&format!("{}", profile.port));
             username.set_text(profile.username.as_str());
             password.set_text(profile.password.as_str());
+            save_password.set_active(profile.save_password);
             domain.set_text(profile.domain.as_str());
             width.set_text(&format!("{}", profile.width));
             height.set_text(&format!("{}", profile.height));
@@ -252,6 +256,7 @@ impl Rdg {
         let port = self.port.clone();
         let username = self.username.clone();
         let password = self.password.clone();
+        let save_password = self.save_password.clone();
         let domain = self.domain.clone();
         let width = self.width.clone();
         let height = self.height.clone();
@@ -318,11 +323,12 @@ impl Rdg {
                 }
             };
 
-            let profile = Profile {
+            let mut profile = Profile {
                 host: host.clone(),
                 port: port,
                 username: username.get_text().map(|v| v.to_string()).unwrap_or("".into()),
                 password: password.get_text().map(|v| v.to_string()).unwrap_or("".into()),
+                save_password: save_password.get_active(),
                 domain: domain.get_text().map(|v| v.to_string()).unwrap_or("".into()),
                 width: width,
                 height: height,
@@ -340,6 +346,10 @@ impl Rdg {
             let settings = padlock::mutex_lock(&settings, |lock| lock.clone());
 
             connections.connect(&profile, &settings, count_update_trigger.clone());
+            
+            if !profile.save_password{
+                profile.password = "".to_string();
+            }
 
             padlock::mutex_lock(&profiles, move |lock| {
                 drop(lock.insert(profile));
