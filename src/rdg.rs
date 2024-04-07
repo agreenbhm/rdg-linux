@@ -1,24 +1,17 @@
-use gtk::{
-    prelude::*,
-    Builder, CheckButton
-};
-use gio::prelude::*;
 use crate::{
-    get_obj,
+    connections::Connections,
     error::RdgResult,
-    profiles::{
-        Profile,
-        Profiles
-    },
+    get_obj,
+    profiles::{Profile, Profiles},
     settings::Settings,
-    connections::Connections
 };
-use std::sync::{Arc, Mutex, atomic::Ordering};
-use padlock;
+use gtk::gio::prelude::*;
+use gtk::{prelude::*, Builder};
+use std::sync::{atomic::Ordering, Arc, Mutex};
 
 pub struct Rdg {
     connections: Arc<Connections>,
-    count_update_trigger: glib::Sender<()>,
+    count_update_trigger: gtk::glib::Sender<()>,
     profiles: Arc<Mutex<Profiles>>,
     settings: Arc<Mutex<Settings>>,
     // Main window, main view
@@ -63,15 +56,13 @@ pub struct Rdg {
     open_about: gtk::Button,
     open_settings: gtk::Button,
     open_extra_args: gtk::Button,
-    quit: gtk::Button
+    quit: gtk::Button,
 }
 
 impl Rdg {
-
     pub fn build(app: &gtk::Application) -> RdgResult<Self> {
-
-        let builder = Builder::new_from_resource("/net/olback/rdg/ui");
-        let (tx, rx) = glib::MainContext::channel::<()>(glib::Priority::default());
+        let builder = Builder::from_resource("/net/olback/rdg/ui");
+        let (tx, rx) = gtk::glib::MainContext::channel::<()>(gtk::glib::Priority::default());
 
         let inner = Self {
             connections: Arc::new(Connections::new()),
@@ -119,7 +110,7 @@ impl Rdg {
             open_about: get_obj!(builder, "open_about"),
             open_settings: get_obj!(builder, "open_settings"),
             open_extra_args: get_obj!(builder, "open_extra_args"),
-            quit: get_obj!(builder, "quit")
+            quit: get_obj!(builder, "quit"),
         };
 
         inner.setup();
@@ -135,11 +126,9 @@ impl Rdg {
         inner.main_window.show();
 
         Ok(inner)
-
     }
 
     fn setup(&self) {
-
         let settings = padlock::mutex_lock(&self.settings, |lock| lock.clone());
         let profiles = padlock::mutex_lock(&self.profiles, |lock| lock.clone());
 
@@ -152,36 +141,37 @@ impl Rdg {
                         let d = dir.expect("error");
                         let t = d.file_type().expect("could not determine file type");
                         if t.is_file() {
-                            self.keymap.append_text(d.file_name().to_str().expect("failed to convert filename to str"))
+                            self.keymap.append_text(
+                                d.file_name()
+                                    .to_str()
+                                    .expect("failed to convert filename to str"),
+                            )
                         }
                     }
                     Self::cbt_set(&self.keymap, "en-us", "en-us");
-                },
+                }
                 Err(e) => {
                     self.show_error(&format!("Error reading keymap dir: {}", e));
                 }
             }
         } else {
-            self.show_error(&format!("Error: Keymap path not found"));
+            self.show_error("Error: Keymap path not found");
         }
 
         if !settings.rdesktop_path.exists() {
-            self.show_error(&format!("Error: Could not find rdesktop binary"));
+            self.show_error("Error: Could not find rdesktop binary");
         }
 
         self.host.remove_all();
         for (k, _) in profiles.iter() {
             self.host.append_text(k.as_str());
         }
-
     }
 
-    fn connect_subtitle(&self, rx: glib::Receiver<()>) {
-
+    fn connect_subtitle(&self, rx: gtk::glib::Receiver<()>) {
         let header_bar = self.header_bar.clone();
         let count = Arc::clone(&self.connections.count());
         rx.attach(None, move |_| {
-
             let amount = count.load(Ordering::SeqCst);
 
             if amount == 0 {
@@ -190,14 +180,11 @@ impl Rdg {
                 header_bar.set_subtitle(Some(&format!("Active connections: {}", amount)));
             }
 
-            glib::source::Continue(true)
-
+            gtk::glib::ControlFlow::Continue
         });
-
     }
 
     fn connect_host_changed(&self) {
-
         let port = self.port.clone();
         let username = self.username.clone();
         let password = self.password.clone();
@@ -216,20 +203,19 @@ impl Rdg {
         let extra_args = self.extra_args.clone();
         let profiles = Arc::clone(&self.profiles);
         self.host.connect_changed(move |val| {
-
-            let profile = match val.get_active_text().map(|v| v.to_string()) {
+            let profile = match val.active_text().map(|v| v.to_string()) {
                 Some(addr) => {
-                    match padlock::mutex_lock(&profiles, |lock| lock.get(addr).map(|v| v.clone())) {
+                    match padlock::mutex_lock(&profiles, |lock| lock.get(addr).cloned()) {
                         Some(p) => p,
-                        None => return
+                        None => return,
                     }
-                },
-                None => return
+                }
+                None => return,
             };
 
             port.set_text(&format!("{}", profile.port));
             username.set_text(profile.username.as_str());
-            password.set_text(profile.password.as_str());
+            password.set_text(profile.password.as_deref().unwrap_or(""));
             save_password.set_active(profile.save_password);
             domain.set_text(profile.domain.as_str());
             width.set_text(&format!("{}", profile.width));
@@ -243,13 +229,10 @@ impl Rdg {
             cache_bitmaps.set_active(profile.cache_bitmaps);
             numlock_sync.set_active(profile.sync_numlock);
             extra_args.set_text(&profile.extra_args);
-
         });
-
     }
 
     fn connect_connect_button(&self) {
-
         let info_bar = self.info_bar.clone();
         let info_bar_label = self.info_bar_label.clone();
         let host_entry = self.host_entry.clone();
@@ -274,81 +257,95 @@ impl Rdg {
         let settings = Arc::clone(&self.settings);
         let count_update_trigger = self.count_update_trigger.clone();
         self.connect_button.connect_clicked(move |_| {
-
-            let host = host_entry.get_text().map(|v| v.to_string()).unwrap_or("".into());
+            let host = host_entry.text().to_string();
             if host.is_empty() {
                 info_bar_label.set_text("Address may not be empty");
                 info_bar.set_message_type(gtk::MessageType::Error);
                 info_bar.set_visible(true);
-                return
+                return;
             }
 
-            let port = match port.get_text().map(|v| v.to_string()).unwrap_or("3389".into()).parse::<u16>() {
+            let port = match port.text().parse::<u16>() {
                 Ok(p) => p,
                 Err(e) => {
                     info_bar_label.set_text(&format!("Error parsing port: {}", e));
                     info_bar.set_message_type(gtk::MessageType::Error);
                     info_bar.set_visible(true);
-                    return
+                    return;
                 }
             };
 
-            let width = match width.get_text().map(|v| v.to_string()).unwrap_or("1366".into()).parse::<u32>() {
+            let width = match width.text().parse::<u32>() {
                 Ok(w) => w,
                 Err(e) => {
                     info_bar_label.set_text(&format!("Error parsing width: {}", e));
                     info_bar.set_message_type(gtk::MessageType::Error);
                     info_bar.set_visible(true);
-                    return
+                    return;
                 }
             };
 
-            let height = match height.get_text().map(|v| v.to_string()).unwrap_or("768".into()).parse::<u32>() {
+            let height = match height.text().parse::<u32>() {
                 Ok(w) => w,
                 Err(e) => {
                     info_bar_label.set_text(&format!("Error parsing height: {}", e));
                     info_bar.set_message_type(gtk::MessageType::Error);
                     info_bar.set_visible(true);
-                    return
+                    return;
                 }
             };
 
-            let color_depth = match color_depth.get_active_text().map(|v| v.to_string()).unwrap_or("15".into()).parse::<u8>() {
+            let color_depth = match color_depth
+                .active_text()
+                .map(|v| v.to_string())
+                .unwrap_or("15".into())
+                .parse::<u8>()
+            {
                 Ok(w) => w,
                 Err(e) => {
                     info_bar_label.set_text(&format!("Error parsing color depth: {}", e));
                     info_bar.set_message_type(gtk::MessageType::Error);
                     info_bar.set_visible(true);
-                    return
+                    return;
                 }
             };
 
             let mut profile = Profile {
                 host: host.clone(),
-                port: port,
-                username: username.get_text().map(|v| v.to_string()).unwrap_or("".into()),
-                password: password.get_text().map(|v| v.to_string()).unwrap_or("".into()),
-                save_password: save_password.get_active(),
-                domain: domain.get_text().map(|v| v.to_string()).unwrap_or("".into()),
-                width: width,
-                height: height,
-                keymap: keymap.get_active_text().map(|v| v.to_string()).unwrap_or("en-us".into()),
-                experience: experience.get_active_text().map(|v| v.to_string()).unwrap_or("lan".into()),
-                color_depth: color_depth,
-                fullscreen: fullscreen.get_active(),
-                disable_encryption: disable_encryption.get_active(),
-                compression: compression.get_active(),
-                cache_bitmaps: cache_bitmaps.get_active(),
-                sync_numlock: numlock_sync.get_active(),
-                extra_args: extra_args.get_text().map(|v| v.to_string()).unwrap_or("".into())
+                port,
+                username: username.text().to_string(),
+                password: if save_password.is_active() {
+                    Some(password.text().to_string())
+                } else {
+                    None
+                },
+                save_password: save_password.is_active(),
+                domain: domain.text().to_string(),
+                width,
+                height,
+                keymap: keymap
+                    .active_text()
+                    .map(|v| v.to_string())
+                    .unwrap_or("en-us".into()),
+                experience: experience
+                    .active_text()
+                    .map(|v| v.to_string())
+                    .unwrap_or("lan".into()),
+                color_depth,
+                fullscreen: fullscreen.is_active(),
+                disable_encryption: disable_encryption.is_active(),
+                compression: compression.is_active(),
+                cache_bitmaps: cache_bitmaps.is_active(),
+                sync_numlock: numlock_sync.is_active(),
+                extra_args: extra_args.text().to_string(),
             };
 
             let settings = padlock::mutex_lock(&settings, |lock| lock.clone());
 
             connections.connect(&profile, &settings, count_update_trigger.clone());
-            
-            if !profile.save_password{
-                profile.password = "".to_string();
+
+            if !profile.save_password {
+                profile.password = None;
             }
 
             padlock::mutex_lock(&profiles, move |lock| {
@@ -357,27 +354,21 @@ impl Rdg {
 
             info_bar.set_visible(false);
 
-            drop(count_update_trigger.send(()));
-
+            _ = count_update_trigger.send(());
         });
-
     }
 
     fn connect_info_bar(&self) {
-
         self.info_bar.connect_response(|info_bar, _| {
             info_bar.set_visible(false);
         });
-
     }
 
     fn connect_menu(&self, app: gtk::Application) {
-
         let about_dialog = self.about_dialog.clone();
         self.open_about.connect_clicked(move |_| {
-            match about_dialog.run() {
-                _ => about_dialog.hide()
-            }
+            about_dialog.run();
+            about_dialog.hide()
         });
 
         let stack = self.stack.clone();
@@ -393,16 +384,13 @@ impl Rdg {
         self.quit.connect_clicked(move |_| {
             app.quit();
         });
-
     }
 
     fn connect_settings(&self) {
+        let settings = padlock::mutex_lock(&self.settings, |lock| lock.clone());
 
-        let settings = padlock::mutex_lock(&self.settings, |lock| {
-            lock.clone()
-        });
-
-        self.allow_untrusted_cert.set_active(settings.allow_untrusted_cert);
+        self.allow_untrusted_cert
+            .set_active(settings.allow_untrusted_cert);
         self.rdesktop_path.set_filename(settings.rdesktop_path);
         self.keymap_path.set_filename(settings.keymap_path);
 
@@ -418,46 +406,40 @@ impl Rdg {
         let rdesktop_path = self.rdesktop_path.clone();
         let keymap_path = self.keymap_path.clone();
         self.settings_save.connect_clicked(move |_| {
-
-            let allow_untrusted_cert = allow_untrusted_cert.get_active();
-            let rdesktop_path = rdesktop_path.get_filename();
-            let keymap_path = keymap_path.get_filename();
+            let allow_untrusted_cert = allow_untrusted_cert.is_active();
+            let rdesktop_path = rdesktop_path.filename();
+            let keymap_path = keymap_path.filename();
 
             let new_settings = padlock::mutex_lock(&settings, move |lock| {
                 lock.allow_untrusted_cert = allow_untrusted_cert;
-                match rdesktop_path {
-                    Some(v) => lock.rdesktop_path = v,
-                    None => {}
-                };
-                match keymap_path {
-                    Some(v) => lock.keymap_path = v,
-                    None => {}
-                };
+
+                if let Some(v) = rdesktop_path {
+                    lock.rdesktop_path = v;
+                }
+
+                if let Some(v) = keymap_path {
+                    lock.keymap_path = v;
+                }
                 lock.clone()
             });
 
             match new_settings.save() {
-
                 Ok(_) => {
                     info_bar_label.set_text("Settings saved");
                     info_bar.set_message_type(gtk::MessageType::Info);
                     info_bar.set_visible(true);
-                },
+                }
 
                 Err(e) => {
                     info_bar_label.set_text(&format!("Error saving: {}", e));
                     info_bar.set_message_type(gtk::MessageType::Error);
                     info_bar.set_visible(true);
                 }
-
             }
-
         });
-
     }
 
     fn connect_extra_args(&self) {
-
         let extra_args_window = self.extra_args_window.clone();
         self.extra_args_button.connect_clicked(move |_| {
             extra_args_window.show();
@@ -470,18 +452,18 @@ impl Rdg {
 
         self.extra_args_window.connect_delete_event(|window, _| {
             window.hide();
-            glib::signal::Inhibit(true)
+            gtk::glib::signal::Propagation::Stop
         });
-
     }
 
     fn cbt_set(cbt: &gtk::ComboBoxText, search: &str, default: &str) {
-
-        let model = cbt.get_model().expect("could not get model");
-        let iter = model.get_iter_from_string("0:1").expect("failed to get iter from string");
+        let model = cbt.model().expect("could not get model");
+        let iter = model
+            .iter_from_string("0:1")
+            .expect("failed to get iter from string");
         let mut index = 0;
         loop {
-            let val: String = model.get_value(&iter, 0).get().expect("failed to get value").unwrap_or(String::from(default));
+            let val: String = model.value(&iter, 0).get::<String>().unwrap_or("".into());
             if val.trim() == search.trim() {
                 cbt.set_active(Some(index));
                 break;
@@ -495,15 +477,11 @@ impl Rdg {
                 unreachable!("no match found")
             }
         }
-
     }
 
     fn show_error(&self, msg: &str) {
-
         self.info_bar_label.set_text(msg);
         self.info_bar.set_message_type(gtk::MessageType::Error);
         self.info_bar.set_visible(true);
-
     }
-
 }

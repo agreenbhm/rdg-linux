@@ -1,15 +1,15 @@
-use serde::{Serialize, Deserialize};
-use dirs;
-use std::{fs, collections::HashMap, path::PathBuf};
 use crate::{error::RdgResult, settings::Settings};
-use serde_json;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
     pub host: String,
     pub port: u16,
     pub username: String,
-    pub password: String,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
     pub save_password: bool,
     pub domain: String,
     pub width: u32,
@@ -22,13 +22,11 @@ pub struct Profile {
     pub compression: bool,
     pub cache_bitmaps: bool,
     pub sync_numlock: bool,
-    pub extra_args: String
+    pub extra_args: String,
 }
 
 impl Profile {
-
     pub fn get_connect_args(&self, settings: &Settings) -> Vec<String> {
-
         let mut args = Vec::<String>::new();
 
         // Username
@@ -38,7 +36,7 @@ impl Profile {
         }
 
         // Password
-        let password = self.password.trim();
+        let password = self.password.as_deref().map(str::trim).unwrap_or("");
         if !password.is_empty() {
             args.push(format!("-p{}", password));
         }
@@ -53,7 +51,10 @@ impl Profile {
         args.push(format!("-g{}x{}", self.width, self.height));
 
         // Keymap
-        args.push(format!("-k{}", settings.keymap_path.join(&self.keymap).display()));
+        args.push(format!(
+            "-k{}",
+            settings.keymap_path.join(&self.keymap).display()
+        ));
 
         // Experience
         args.push(format!("-x{}", self.experience));
@@ -96,22 +97,20 @@ impl Profile {
         args.push(format!("{}:{}", self.host, self.port));
 
         args
-
     }
-
 }
 
 #[derive(Debug, Clone)]
 pub struct Profiles {
     profiles: HashMap<String, Profile>,
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl Profiles {
-
     pub fn load() -> RdgResult<Self> {
-
-        let conf_dir = dirs::config_dir().expect("config dir does not exist").join("rdg");
+        let conf_dir = dirs::config_dir()
+            .expect("config dir does not exist")
+            .join("rdg");
         let profiles_path = conf_dir.join("profiles.json");
 
         if !conf_dir.exists() {
@@ -127,39 +126,29 @@ impl Profiles {
         let profiles: HashMap<String, Profile> = serde_json::from_str(&profiles_data)?;
 
         Ok(Self {
-            profiles: profiles,
-            path: profiles_path
+            profiles,
+            path: profiles_path,
         })
-
     }
 
     pub fn insert(&mut self, profile: Profile) -> RdgResult<()> {
-
         self.profiles.insert(profile.host.clone(), profile);
         self.save()?;
         Ok(())
-
     }
 
     pub fn get<K: Into<String>>(&self, key: K) -> Option<&Profile> {
-
         self.profiles.get(&key.into())
-
     }
 
     pub fn iter(&self) -> std::collections::hash_map::Iter<String, Profile> {
-
         self.profiles.iter()
-
     }
 
     fn save(&self) -> RdgResult<()> {
-
         let profiles_str = serde_json::to_string_pretty(&self.profiles)?;
         fs::write(&self.path, profiles_str)?;
 
         Ok(())
-
     }
-
 }

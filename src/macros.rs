@@ -22,7 +22,12 @@ macro_rules! impl_from {
         impl From<$t> for RdgError {
             fn from(err: $t) -> RdgError {
                 // super::new_err!(format!("{}", err))
-                $crate::error::RdgError::new_with_module(format!("{}", err), std::file!(), std::line!(), stringify!($t))
+                $crate::error::RdgError::new_with_module(
+                    format!("{}", err),
+                    std::file!(),
+                    std::line!(),
+                    stringify!($t),
+                )
             }
         }
     };
@@ -32,9 +37,9 @@ macro_rules! impl_from {
 macro_rules! get_obj {
     ($builder:expr, $id:expr) => {
         // Catch and panic manually to get useful file and line info
-        match $builder.get_object($id) {
+        match $builder.object($id) {
             Some(o) => o,
-            None => panic!("could not get {}", $id)
+            None => panic!("could not get {}", $id),
         }
     };
 }

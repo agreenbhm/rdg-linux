@@ -19,7 +19,7 @@
     <property name="attached-to">main_window</property>
     <property name="program-name">rDesktop GUI</property>
     <property name="version">{version}</property>
-    <property name="copyright" translatable="yes">Edwin Svensson © 2020</property>
+    <property name="copyright" translatable="yes">Edwin Svensson © 2024</property>
     <property name="website">https://github.com/olback/rdg-linux</property>
     <property name="website-label" translatable="yes">rdesktop GUI on Github</property>
     <property name="authors">Edwin Svensson</property>
